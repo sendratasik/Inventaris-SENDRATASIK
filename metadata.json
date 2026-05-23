@@ -1,0 +1,6 @@
+{
+  "name": "Inventaris Sendratasik MAN Purbalingga",
+  "description": "Aplikasi manajemen inventaris barang, peminjaman, dan pelaporan untuk Ekstrakurikuler SENDRATASIK MAN Purbalingga dengan fitur multiuser, QR Code, dan integrasi Google Sheets.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
