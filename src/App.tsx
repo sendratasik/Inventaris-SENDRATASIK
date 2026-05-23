@@ -89,6 +89,8 @@ export default function App() {
   });
 
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   // --- CUSTOM SWEETALERT ALERTS TRIGGER SYSTEM ---
   const [alertConfig, setAlertConfig] = useState<{
@@ -151,39 +153,108 @@ export default function App() {
     }
   }, [sessionUser]);
 
-  // Load data dynamically from Google Apps Script Spreadsheet if running inside GAS ecosystem
-  useEffect(() => {
+  // --- REMOTE REST API CALL HELPERS FOR VERCEL ---
+  const fetchRemoteData = async (action: string, getParams: string = ''): Promise<any> => {
+    if (!settings.api_url) return null;
+    try {
+      const url = `${settings.api_url}?action=${action}${getParams}`;
+      const resp = await fetch(url);
+      if (resp.ok) {
+        return await resp.json();
+      }
+    } catch (e) {
+      console.error(`Gagal mengambil data ${action} dari server GAS: `, e);
+    }
+    return null;
+  };
+
+  const callRemoteAPI = async (action: string, payload: any = {}): Promise<any> => {
+    if (!settings.api_url) return null;
+    try {
+      const resp = await fetch(settings.api_url, {
+        method: 'POST',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'text/plain' // text/plain prevents CORS preflight triggers
+        },
+        body: JSON.stringify({ action, ...payload })
+      });
+      if (resp.ok) {
+        return await resp.json();
+      }
+    } catch (e) {
+      console.error("Gagal sinkronisasi data dengan server GAS secara remote: ", e);
+    }
+    return null;
+  };
+
+  // Sync with Sheets database (supports both inside GAS container iframe and Vercel remote API)
+  const syncDatabaseWithGAS = async () => {
     const isGAS = typeof (window as any).google !== 'undefined' && (window as any).google.script && (window as any).google.script.run;
+    
     if (isGAS) {
-      console.log("GAS detected! Syncing with Google Sheets...");
+      setIsSyncing(true);
       const gas = (window as any).google.script.run;
       
-      // Load settings
       gas.withSuccessHandler((savedSettings: any) => {
         if (savedSettings) setSettings(savedSettings);
+        
+        gas.withSuccessHandler((savedItems: any) => {
+          if (savedItems && savedItems.length > 0) setItems(savedItems);
+          
+          gas.withSuccessHandler((savedUsers: any) => {
+            if (savedUsers && savedUsers.length > 0) setUsers(savedUsers);
+            
+            gas.withSuccessHandler((savedLoans: any) => {
+              if (savedLoans && savedLoans.length > 0) setLoans(savedLoans);
+              
+              gas.withSuccessHandler((savedLogs: any) => {
+                if (savedLogs && savedLogs.length > 0) setLogs(savedLogs);
+                setIsSyncing(false);
+                setLastSyncTime(new Date());
+              }).getLogs();
+            }).getPeminjaman();
+          }).getUsers();
+        }).getInventory();
       }).getSettings();
+    } else if (settings.api_url) {
+      setIsSyncing(true);
+      try {
+        const remoteSettings = await fetchRemoteData('getSettings');
+        if (remoteSettings) setSettings(remoteSettings);
 
-      // Load items
-      gas.withSuccessHandler((savedItems: any) => {
-        if (savedItems && savedItems.length > 0) setItems(savedItems);
-      }).getInventory();
+        const remoteItems = await fetchRemoteData('getInventory');
+        if (remoteItems) setItems(remoteItems);
 
-      // Load users
-      gas.withSuccessHandler((savedUsers: any) => {
-        if (savedUsers && savedUsers.length > 0) setUsers(savedUsers);
-      }).getUsers();
+        const remoteUsers = await fetchRemoteData('getUsers');
+        if (remoteUsers) setUsers(remoteUsers);
 
-      // Load loans
-      gas.withSuccessHandler((savedLoans: any) => {
-        if (savedLoans && savedLoans.length > 0) setLoans(savedLoans);
-      }).getPeminjaman();
+        const remoteLoans = await fetchRemoteData('getPeminjaman');
+        if (remoteLoans) setLoans(remoteLoans);
 
-      // Load logs
-      gas.withSuccessHandler((savedLogs: any) => {
-        if (savedLogs && savedLogs.length > 0) setLogs(savedLogs);
-      }).getLogs();
+        const remoteLogs = await fetchRemoteData('getLogs');
+        if (remoteLogs) setLogs(remoteLogs);
+        
+        setLastSyncTime(new Date());
+      } catch (e) {
+        console.warn("Kesalahan koneksi saat melakukan background sync: ", e);
+      } finally {
+        setIsSyncing(false);
+      }
     }
-  }, []);
+  };
+
+  // Poll database every 15 seconds if tab is active (preserves Google Apps Script daily quotas)
+  useEffect(() => {
+    syncDatabaseWithGAS();
+
+    const interval = setInterval(() => {
+      if (document.hidden) return; // Silent sleep on background tabs
+      syncDatabaseWithGAS();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [settings.api_url]);
 
   // Check connection state
   const isGASConnected = typeof (window as any).google !== 'undefined' && (window as any).google.script;
@@ -203,6 +274,8 @@ export default function App() {
     // Send to Google Sheets if connected
     if (isGASConnected) {
       (window as any).google.script.run.addLog(username, role, action, description);
+    } else if (settings.api_url) {
+      callRemoteAPI('addLog', { username, role, aksi: action, keterangan: description });
     }
   };
 
@@ -242,6 +315,12 @@ export default function App() {
           if (savedItems) setItems(savedItems);
         }).getInventory();
       }).saveInventaris(itemData);
+    } else if (settings.api_url) {
+      callRemoteAPI('saveInventaris', { item: itemData }).then(() => {
+        fetchRemoteData('getInventory').then(savedItems => {
+          if (savedItems) setItems(savedItems);
+        });
+      });
     }
 
     if (isEditing) {
@@ -269,6 +348,12 @@ export default function App() {
           if (savedItems) setItems(savedItems);
         }).getInventory();
       }).deleteInventaris(kode);
+    } else if (settings.api_url) {
+      callRemoteAPI('deleteInventaris', { kode }).then(() => {
+        fetchRemoteData('getInventory').then(savedItems => {
+          if (savedItems) setItems(savedItems);
+        });
+      });
     }
 
     setItems(prev => prev.filter(i => i.kode !== kode));
@@ -304,6 +389,15 @@ export default function App() {
           if (savedItems) setItems(savedItems);
         }).getInventory();
       }).addPeminjaman(newLoanRecord);
+    } else if (settings.api_url) {
+      callRemoteAPI('addPeminjaman', { record: newLoanRecord }).then(() => {
+        fetchRemoteData('getPeminjaman').then(savedLoans => {
+          if (savedLoans) setLoans(savedLoans);
+        });
+        fetchRemoteData('getInventory').then(savedItems => {
+          if (savedItems) setItems(savedItems);
+        });
+      });
     }
 
     setLoans(prev => [newLoanRecord, ...prev]);
@@ -348,6 +442,12 @@ export default function App() {
           if (savedLoans) setLoans(savedLoans);
         }).getPeminjaman();
       }).processPeminjaman(id, "Disetujui", pembinaNama, ttdBase64);
+    } else if (settings.api_url) {
+      callRemoteAPI('processPeminjaman', { id, status: "Disetujui", pembinaName: pembinaNama, ttdBase64 }).then(() => {
+        fetchRemoteData('getPeminjaman').then(savedLoans => {
+          if (savedLoans) setLoans(savedLoans);
+        });
+      });
     }
 
     setLoans(prev => prev.map(l => {
@@ -382,6 +482,15 @@ export default function App() {
           if (savedItems) setItems(savedItems);
         }).getInventory();
       }).processPeminjaman(id, "Ditolak", "", "");
+    } else if (settings.api_url) {
+      callRemoteAPI('processPeminjaman', { id, status: "Ditolak", pembinaName: "", ttdBase64: "" }).then(() => {
+        fetchRemoteData('getPeminjaman').then(savedLoans => {
+          if (savedLoans) setLoans(savedLoans);
+        });
+        fetchRemoteData('getInventory').then(savedItems => {
+          if (savedItems) setItems(savedItems);
+        });
+      });
     }
 
     setLoans(prev => prev.map(l => l.id === id ? { ...l, status: 'Ditolak' as const } : l));
@@ -425,6 +534,15 @@ export default function App() {
           if (savedItems) setItems(savedItems);
         }).getInventory();
       }).kembalikanBarang(id, denda, keteranganDenda, kondisiAkhir);
+    } else if (settings.api_url) {
+      callRemoteAPI('kembalikanBarang', { id, denda, keteranganDenda, kondisiAkhir }).then(() => {
+        fetchRemoteData('getPeminjaman').then(savedLoans => {
+          if (savedLoans) setLoans(savedLoans);
+        });
+        fetchRemoteData('getInventory').then(savedItems => {
+          if (savedItems) setItems(savedItems);
+        });
+      });
     }
 
     setLoans(prev => prev.map(l => {
@@ -492,6 +610,12 @@ export default function App() {
           if (savedUsers) setUsers(savedUsers);
         }).getUsers();
       }).addUser(newUser);
+    } else if (settings.api_url) {
+      callRemoteAPI('addUser', { user: newUser }).then(() => {
+        fetchRemoteData('getUsers').then(savedUsers => {
+          if (savedUsers) setUsers(savedUsers);
+        });
+      });
     }
 
     setUsers(prev => [...prev, newUser]);
@@ -511,6 +635,12 @@ export default function App() {
           if (savedUsers) setUsers(savedUsers);
         }).getUsers();
       }).deleteUser(id);
+    } else if (settings.api_url) {
+      callRemoteAPI('deleteUser', { id }).then(() => {
+        fetchRemoteData('getUsers').then(savedUsers => {
+          if (savedUsers) setUsers(savedUsers);
+        });
+      });
     }
 
     setUsers(prev => prev.filter(u => u.id !== id));
@@ -528,6 +658,23 @@ export default function App() {
           if (savedSettings) setSettings(savedSettings);
         }).getSettings();
       }).saveSettings(newSettings);
+    } else if (newSettings.api_url) {
+      // First, save locally so that callRemoteAPI uses the newly written api_url!
+      setSettings(newSettings);
+      
+      // Setup a quick deferred POST to save settings to Sheets database using the new api_url
+      fetch(`${newSettings.api_url}`, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'saveSettings', settings: newSettings })
+      }).then(resp => {
+        if (resp.ok) {
+          resp.json().then(savedSettings => {
+            if (savedSettings) setSettings(savedSettings);
+          });
+        }
+      }).catch(err => console.error("Gagal sinkronisasi setelan lewat REST API: ", err));
     }
 
     setSettings(newSettings);
@@ -687,6 +834,8 @@ export default function App() {
             darkMode={darkMode}
             setDarkMode={setDarkMode}
             isGASConnected={isGASConnected}
+            hasApiUrl={!!settings.api_url}
+            isSyncing={isSyncing}
           />
 
           {/* Main Content Pane */}

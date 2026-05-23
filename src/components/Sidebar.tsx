@@ -36,6 +36,8 @@ interface SidebarProps {
   darkMode: boolean;
   setDarkMode: (dark: boolean) => void;
   isGASConnected?: boolean;
+  hasApiUrl?: boolean;
+  isSyncing?: boolean;
 }
 
 export default function Sidebar({
@@ -50,6 +52,8 @@ export default function Sidebar({
   darkMode,
   setDarkMode,
   isGASConnected = false,
+  hasApiUrl = false,
+  isSyncing = false,
 }: SidebarProps) {
   const [isOpen, setIsOpen] = React.useState(false);
 
@@ -144,15 +148,26 @@ export default function Sidebar({
           <div className="text-xs bg-slate-850 px-3 py-2 rounded-lg border border-slate-800 text-slate-400 leading-normal line-clamp-2">
             {appName}
           </div>
-          <div className="mt-2.5 flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-950/40 border border-slate-850 no-print">
-            <span className="flex h-1.5 w-1.5 relative shrink-0">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isGASConnected ? 'bg-emerald-400' : 'bg-slate-400'}`}></span>
-              <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${isGASConnected ? 'bg-emerald-500' : 'bg-slate-500'}`}></span>
-            </span>
-            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
-              <Database size={10} className={isGASConnected ? 'text-emerald-400' : 'text-slate-400'} />
-              <span>{isGASConnected ? 'Google Sheet Aktif' : 'Simulasi (Offline)'}</span>
-            </span>
+          <div className="mt-2.5 flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-950/40 border border-slate-850 no-print">
+            <div className="flex items-center space-x-2">
+              <span className="flex h-1.5 w-1.5 relative shrink-0">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 
+                  ${isGASConnected ? 'bg-emerald-400' : hasApiUrl ? 'bg-teal-400' : 'bg-slate-400'}
+                `}></span>
+                <span className={`relative inline-flex rounded-full h-1.5 w-1.5 
+                  ${isGASConnected ? 'bg-emerald-500' : hasApiUrl ? 'bg-teal-500' : 'bg-slate-500'}
+                `}></span>
+              </span>
+              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+                <Database size={10} className={isGASConnected ? 'text-emerald-400' : hasApiUrl ? 'text-teal-400' : 'text-slate-400'} />
+                <span>
+                  {isGASConnected ? 'Google Sheet Aktif' : hasApiUrl ? 'Vercel Cloud Sync' : 'Simulasi (Offline)'}
+                </span>
+              </span>
+            </div>
+            {isSyncing && (
+              <span className="text-[8px] font-black tracking-widest text-teal-400 animate-pulse uppercase leading-none">Sync...</span>
+            )}
           </div>
         </div>
 

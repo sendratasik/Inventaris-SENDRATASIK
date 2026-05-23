@@ -197,7 +197,8 @@ export const INITIAL_SETTINGS: Settings = {
   sheet_url: 'https://docs.google.com/spreadsheets/d/1DFkC9dVowWgJRRsYh1TjHZIc1W70N5pB/edit#gid=0',
   multi_ekskul_enabled: true,
   backup_otomatis: true,
-  nominal_denda_per_hari: 5000
+  nominal_denda_per_hari: 5000,
+  api_url: ''
 };
 
 export const CATEGORIES = [

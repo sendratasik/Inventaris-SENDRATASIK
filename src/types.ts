@@ -60,4 +60,5 @@ export interface Settings {
   multi_ekskul_enabled: boolean;
   backup_otomatis: boolean;
   nominal_denda_per_hari: number;
+  api_url?: string;
 }

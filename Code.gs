@@ -29,12 +29,79 @@ function getSpreadsheet() {
   return null;
 }
 
-function doGet() {
+function doGet(e) {
+  // Menangani permintaan API REST luar (misal dari Vercel/Localhost) jika terdapat parameter 'action'
+  if (e && e.parameter && e.parameter.action) {
+    var action = e.parameter.action;
+    var result;
+    
+    try {
+      if (action === "getSettings") {
+        result = getSettings();
+      } else if (action === "getInventory") {
+        result = getInventory();
+      } else if (action === "getUsers") {
+        result = getUsers();
+      } else if (action === "getPeminjaman") {
+        result = getPeminjaman();
+      } else if (action === "getLogs") {
+        result = getLogs();
+      } else if (action === "loginUser") {
+        result = loginUser(e.parameter.username, e.parameter.password);
+      } else {
+        result = { success: false, message: "Aksi GET tidak dikenal: " + action };
+      }
+    } catch (err) {
+      result = { success: false, message: err.toString() };
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // Menggunakan createHtmlOutputFromFile menghindari evaluasi scriptlet (<? ?>) yang sering membuat error di file JS/CSS hasil bundling.
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('E-Inventaris Sendratasik MAN Purbalingga')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function doPost(e) {
+  var result;
+  
+  try {
+    var contents = e.postData.contents;
+    var params = JSON.parse(contents);
+    var action = params.action;
+    
+    if (action === "saveInventaris") {
+      result = saveInventaris(params.item);
+    } else if (action === "deleteInventaris") {
+      result = deleteInventaris(params.kode);
+    } else if (action === "addPeminjaman") {
+      result = addPeminjaman(params.record);
+    } else if (action === "processPeminjaman") {
+      result = processPeminjaman(params.id, params.status, params.pembinaName, params.ttdBase64);
+    } else if (action === "kembalikanBarang") {
+      result = kembalikanBarang(params.id, params.denda, params.keteranganDenda, params.kondisiAkhir);
+    } else if (action === "addUser") {
+      result = addUser(params.user);
+    } else if (action === "deleteUser") {
+      result = deleteUser(params.id);
+    } else if (action === "saveSettings") {
+      result = saveSettings(params.settings);
+    } else if (action === "addLog") {
+      addLog(params.username, params.role, params.aksi, params.keterangan);
+      result = { success: true };
+    } else {
+      result = { success: false, message: "Aksi POST tidak dikenal: " + action };
+    }
+  } catch (err) {
+    result = { success: false, message: "REST API Error: " + err.toString() };
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function include(filename) {

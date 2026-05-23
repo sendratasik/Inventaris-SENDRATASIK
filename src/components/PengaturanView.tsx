@@ -37,6 +37,7 @@ export default function PengaturanView({
   const [backupOtomatis, setBackupOtomatis] = useState(settings.backup_otomatis);
   const [multiEkskul, setMultiEkskul] = useState(settings.multi_ekskul_enabled);
   const [sheetUrl, setSheetUrl] = useState(settings.sheet_url);
+  const [apiUrl, setApiUrl] = useState(settings.api_url || '');
 
   const [copiedSection, setCopiedSection] = useState<'codegs' | 'structure' | 'manual' | null>(null);
 
@@ -48,9 +49,10 @@ export default function PengaturanView({
       nominal_denda_per_hari: nominalDenda,
       backup_otomatis: backupOtomatis,
       multi_ekskul_enabled: multiEkskul,
-      sheet_url: sheetUrl.trim()
+      sheet_url: sheetUrl.trim(),
+      api_url: apiUrl.trim()
     });
-    alert('Pengaturan aplikasi berhasil disimpan dan disinkronkan ke local storage!');
+    alert('Pengaturan aplikasi berhasil disimpan dan disinkronkan ke Google Sheets!');
   };
 
   const handleCopyText = (content: string, type: 'codegs' | 'structure' | 'manual') => {
@@ -149,6 +151,27 @@ export default function PengaturanView({
                   className="w-full bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-gray-300 pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-[10px] font-mono outline-none focus:border-teal-500"
                 />
               </div>
+            </div>
+
+            {/* Google Apps Script Web App API Link */}
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-450">Tautan Web App API (Multiuser Sync Online)</label>
+                <span className="bg-teal-500/10 text-teal-500 border border-teal-500/20 px-1 py-0.2 rounded text-[8px] font-extrabold uppercase tracking-widest leading-none">Otomatis Aktif</span>
+              </div>
+              <div className="relative">
+                <Link className="absolute left-3 top-3.5 text-amber-500 w-3.5 h-3.5" />
+                <input
+                  type="url"
+                  value={apiUrl}
+                  onChange={(e) => setApiUrl(e.target.value)}
+                  placeholder="https://script.google.com/macros/s/.../exec"
+                  className="w-full bg-slate-50 dark:bg-slate-950 text-teal-600 dark:text-teal-400 pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-[10px] font-mono outline-none focus:border-teal-500"
+                />
+              </div>
+              <p className="mt-1 text-[9px] text-slate-400 leading-normal">
+                Tempelkan tautan hasil <b>"Deploy as Web App"</b> Google Apps Script Anda di sini agar aplikasi yang di-hosted di Vercel atau luar sheet dapat menyinkronkan data secara real-time antar pengguna online.
+              </p>
             </div>
 
             {/* Fines per day standard configuration as requested: "Apabila terlambat mengembalikan" */}
