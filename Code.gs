@@ -10,11 +10,11 @@
 
 // Silakan ganti SPREADSHEET_ID dengan ID Google Spreadsheet Anda jika menggunakan standalone script,
 // atau kosongkan jika script ini terikat (container-bound) ke Spreadsheet terkait.
-var SPREADSHEET_ID = "SILAKAN_ISI_ID_SPREADSHEET_ANDA_DI_SINI";
+var SPREADSHEET_ID = "1meMCHOtJ3vGlrf-JXwxHfmx9riZx74s28zf90YuyV18";
 
 function getSpreadsheet() {
   try {
-    if (SPREADSHEET_ID && SPREADSHEET_ID !== "SILAKAN_ISI_ID_SPREADSHEET_ANDA_DI_SINI") {
+    if (SPREADSHEET_ID && SPREADSHEET_ID !== "1meMCHOtJ3vGlrf-JXwxHfmx9riZx74s28zf90YuyV18") {
       return SpreadsheetApp.openById(SPREADSHEET_ID);
     }
   } catch (e) {
